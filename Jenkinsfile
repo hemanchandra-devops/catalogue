@@ -57,16 +57,14 @@ pipeline {
                 }
             }
         }
-
         stage("Quality Gate") {
             steps {
-                timeout(time: 30, unit: 'MINUTES') {
+                timeout(time: 10, unit: 'MINUTES') {
                     // Waits for SonarQube server to finish analysis and return status
                     waitForQualityGate abortPipeline: true
                 }
             }
         }
-
 
 
         stage('ECR') {
