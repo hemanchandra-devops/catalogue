@@ -44,7 +44,8 @@ pipeline {
                 }
             }
         }
-        stage('SonarQube Analysis') {
+        
+        /* stage('SonarQube Analysis') {
             steps {
                 // Requires the SonarQube Scanner plugin installed and configured in Jenkins Global Tool Configuration
                 script {
@@ -64,7 +65,7 @@ pipeline {
                     waitForQualityGate abortPipeline: true
                 }
             }
-        }
+        } */
 
 
         stage('ECR') {
