@@ -131,7 +131,6 @@ pipeline {
                     sh '''
                         set -e
 
-                        # Fetch Dependabot alerts
                         curl --fail-with-body -sS \
                             -H "Accept: application/vnd.github+json" \
                             -H "Authorization: Bearer ${GITHUB_TOKEN}" \
@@ -139,25 +138,19 @@ pipeline {
                             "https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/dependabot/alerts?state=open&per_page=100" \
                             -o dependabot_alerts.json
 
-                        # Extract only High/Critical vulnerabilities
-                        jq '
-                            [
-                                .[]
-                                | select(
-                                    .security_vulnerability.severity == "high"
-                                    or
-                                    .security_vulnerability.severity == "critical"
-                                )
-                            ]
-                        ' dependabot_alerts.json > open_vulnerabilities.json
-
-                        # Generate human-readable error summary
-                        jq -r '
+                        jq '[
                             .[]
-                            | "  - [\(.security_vulnerability.severity | ascii_upcase)] Package: \(.security_vulnerability.package.name) | \(.security_advisory.summary)"
+                            | select(
+                                .security_vulnerability.severity == "high"
+                                or
+                                .security_vulnerability.severity == "critical"
+                            )
+                        ]' dependabot_alerts.json > open_vulnerabilities.json
+
+                        jq -r '.[] |
+                            "  - [\\(.security_vulnerability.severity | ascii_upcase)] Package: \\(.security_vulnerability.package.name) | \\(.security_advisory.summary)"
                         ' open_vulnerabilities.json > errors.txt
 
-                        # Count vulnerabilities
                         jq 'length' open_vulnerabilities.json > count.txt
                     '''
 
@@ -173,16 +166,14 @@ pipeline {
                         echo errorDetails
                         echo "============================================================="
 
-                        error(
-                            "Pipeline failed due to ${alertCount} open High/Critical " +
-                            "vulnerability alert(s):\n${errorDetails}"
-                        )
+                        error("Pipeline failed due to ${alertCount} open High/Critical vulnerability alert(s): ${errorDetails}")
                     } else {
                         echo "No open High or Critical Dependabot alerts found. Proceeding with pipeline."
                     }
                 }
             }
         }
+
 
 
         stage('ECR') {
