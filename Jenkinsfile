@@ -6,6 +6,7 @@ pipeline {
     }
     environment { 
         Course = 'Jenkins'
+        appVersion = ""
     }
     options {
         timeout(time: 10, unit: 'MINUTES') 
@@ -13,7 +14,16 @@ pipeline {
     }
     
     stages {
-        stage('NPM Install') {
+        stage('App Version') {
+            steps {
+                script {
+                    def packageJson = readJSON file: 'package.json'
+                    appVersion = packageJson.version
+                    echo "AppVersion: ${appVersion}"
+                }
+            }
+        }
+        stage('npm Install') {
             steps {
                 script {
                     sh """
@@ -24,14 +34,20 @@ pipeline {
         }
         stage('Unit Test') {
             steps {
-                echo "npm test"
+                script {
+                    sh """
+                        npm test
+                    """
+                }
             }
         }
-        stage('Deploy') {
-            steps {
-                echo "Deploying"
-            }
-        }
+//         stage('Deploy') {
+//             steps {
+//                 withAWS(region:'eu-central-1',credentials:'nameOfSystemCredentials',federatedUserId:"${submitter}@${releaseVersion}", duration: 3600) {
+//     // do something
+// }
+//             }
+//         }
     }
 
 
