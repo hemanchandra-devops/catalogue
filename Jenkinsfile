@@ -44,7 +44,7 @@ pipeline {
                 }
             }
         }
-        
+
         /* stage('SonarQube Analysis') {
             steps {
                 // Requires the SonarQube Scanner plugin installed and configured in Jenkins Global Tool Configuration
@@ -66,6 +66,55 @@ pipeline {
                 }
             }
         } */
+
+        stage('Check Dependabot Alerts') {
+    environment {
+        API_URL = 'https://api.github.com/repos/hemanchandra-devops/catalogue/dependabot/alerts?state=open&per_page=100'
+    }
+
+    steps {
+        script {
+            withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+                sh '''
+                    set -e
+
+                    echo "Checking Dependabot alerts..."
+
+                    curl -sS \
+                      -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                      -H "Accept: application/vnd.github+json" \
+                      -H "X-GitHub-Api-Version: 2022-11-28" \
+                      "${API_URL}" > dependabot-alerts.json
+
+                    jq '.' dependabot-alerts.json
+
+                    COUNT=$(jq '
+                      map(
+                        select(
+                          .state == "open" and
+                          (
+                            .security_advisory.severity == "high" or
+                            .security_advisory.severity == "critical"
+                          )
+                        )
+                      ) | length
+                    ' dependabot-alerts.json)
+
+                    echo "Open High/Critical Dependabot alerts: ${COUNT}"
+
+                    if [ "$COUNT" -gt 0 ]; then
+                        echo "❌ Pipeline FAILED"
+                        echo "Open High/Critical Dependabot vulnerabilities found."
+                        exit 1
+                    else
+                        echo "✅ No Open High/Critical Dependabot alerts."
+                        echo "Continuing pipeline..."
+                    fi
+                '''
+                }
+            }
+        }
+    }
 
 
         stage('ECR') {
