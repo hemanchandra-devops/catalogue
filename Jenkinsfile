@@ -120,20 +120,24 @@ pipeline {
         
         stage('Check Dependabot Alerts') {
             environment {
-                REPO_OWNER = 'hemanchandra-devops'
-                REPO_NAME  = 'catalogue'
+                REPO_OWNER   = 'hemanchandra-devops'
+                REPO_NAME    = 'catalogue'
                 GITHUB_TOKEN = credentials('github-token')
             }
             steps {
                 script {
                     echo "Checking Dependabot alerts for ${REPO_OWNER}/${REPO_NAME}..."
 
-                    // Query GitHub API, filter for open high/critical alerts, save JSON output
+                    // 1. Fetch open alerts from GitHub API via curl
+                    // 2. Filter for high/critical severity using jq
+                    // 3. Count matching alerts
                     def alertCount = sh(
                         script: '''
-                            gh api repos/${REPO_OWNER}/${REPO_NAME}/dependabot/alerts \
-                              --paginate \
-                              --jq '[.[] | select(.state == "open" and (.security_vulnerability.severity == "high" or .security_vulnerability.severity == "critical"))]' > open_vulnerabilities.json
+                            curl -s -H "Accept: application/vnd.github+json" \
+                                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                                -H "X-GitHub-Api-Version: 2022-11-28" \
+                                "https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/dependabot/alerts?state=open&per_page=100" \
+                                | jq '[.[] | select(.security_vulnerability.severity == "high" or .security_vulnerability.severity == "critical")]' > open_vulnerabilities.json
 
                             jq 'length' open_vulnerabilities.json
                         ''',
