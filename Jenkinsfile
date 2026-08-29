@@ -130,8 +130,8 @@ pipeline {
 
                     // 1. Fetch open alerts from GitHub API via curl
                     // 2. Filter for high/critical severity using jq
-                    // 3. Count matching alerts
-                    def alertCount = sh(
+                    // 3. Extract detailed error summary and total count
+                    def result = sh(
                         script: '''
                             curl -s -H "Accept: application/vnd.github+json" \
                                 -H "Authorization: Bearer ${GITHUB_TOKEN}" \
@@ -139,24 +139,33 @@ pipeline {
                                 "https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/dependabot/alerts?state=open&per_page=100" \
                                 | jq '[.[] | select(.security_vulnerability.severity == "high" or .security_vulnerability.severity == "critical")]' > open_vulnerabilities.json
 
+                            # Extract error list formatted as: [SEVERITY] Package: Summary
+                            jq -r '.[] | "  - [\(.security_vulnerability.severity | ascii_upcase)] Package: \(.security_vulnerability.package.name) | \(.security_advisory.summary)"' open_vulnerabilities.json > errors.txt
+
                             jq 'length' open_vulnerabilities.json
                         ''',
                         returnStdout: true
                     ).trim().toInteger()
 
-                    // Display filtered JSON in build log
+                    // Display full raw JSON output in build log for debugging
+                    echo "Full vulnerability JSON payload:"
                     sh 'cat open_vulnerabilities.json | jq .'
 
-                    // Fail pipeline if high or critical alerts exist
-                    if (alertCount > 0) {
-                        error("Pipeline failed: Found ${alertCount} open Dependabot alert(s) with High or Critical severity.")
+                    if (result > 0) {
+                        // Read and log the formatted error messages
+                        def errorDetails = readFile('errors.txt').trim()
+                        
+                        echo "=================[ DEPENDABOT ALERT ERRORS ]================="
+                        echo errorDetails
+                        echo "============================================================="
+
+                        error("Pipeline failed due to ${result} open High/Critical vulnerability alert(s):\n${errorDetails}")
                     } else {
                         echo "No open High or Critical Dependabot alerts found. Proceeding with pipeline."
                     }
                 }
             }
         }
-
 
         stage('ECR') {
             steps {
