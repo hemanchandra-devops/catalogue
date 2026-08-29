@@ -127,38 +127,36 @@ pipeline {
                 script {
                     echo "Checking Dependabot alerts for ${REPO_OWNER}/${REPO_NAME}..."
 
-                    // 1. Fetch open alerts from GitHub API via curl
-                    // 2. Filter for high/critical severity using jq
-                    // 3. Extract detailed error summary and total count
-                    def result = sh(
-                        script: '''
-                            curl -s -H "Accept: application/vnd.github+json" \
-                                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-                                -H "X-GitHub-Api-Version: 2022-11-28" \
-                                "https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/dependabot/alerts?state=open&per_page=100" \
-                                | jq '[.[] | select(.security_vulnerability.severity == "high" or .security_vulnerability.severity == "critical")]' > open_vulnerabilities.json
+                    // Execute curl and jq safely inside the shell environment
+                    sh '''
+                        curl -s -H "Accept: application/vnd.github+json" \
+                            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                            -H "X-GitHub-Api-Version: 2022-11-28" \
+                            "https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/dependabot/alerts?state=open&per_page=100" \
+                            | jq '[.[] | select(.security_vulnerability.severity == "high" or .security_vulnerability.severity == "critical")]' > open_vulnerabilities.json
 
-                            # Extract error list formatted as: [SEVERITY] Package: Summary
-                            jq -r '.[] | "  - [\(.security_vulnerability.severity | ascii_upcase)] Package: \(.security_vulnerability.package.name) | \(.security_advisory.summary)"' open_vulnerabilities.json > errors.txt
+                        # Format error summary
+                        jq -r '.[] | "  - [\(.security_vulnerability.severity | ascii_upcase)] Package: \(.security_vulnerability.package.name) | \(.security_advisory.summary)"' open_vulnerabilities.json > errors.txt
 
-                            jq 'length' open_vulnerabilities.json
-                        ''',
-                        returnStdout: true
-                    ).trim().toInteger()
+                        # Get count of vulnerabilities
+                        jq 'length' open_vulnerabilities.json > count.txt
+                    '''
 
-                    // Display full raw JSON output in build log for debugging
+                    // Read output files back into Jenkins Pipeline context
+                    def alertCount = readFile('count.txt').trim().toInteger()
+
+                    // Display full JSON payload in logs
                     echo "Full vulnerability JSON payload:"
                     sh 'cat open_vulnerabilities.json | jq .'
 
-                    if (result > 0) {
-                        // Read and log the formatted error messages
+                    if (alertCount > 0) {
                         def errorDetails = readFile('errors.txt').trim()
                         
                         echo "=================[ DEPENDABOT ALERT ERRORS ]================="
                         echo errorDetails
                         echo "============================================================="
 
-                        error("Pipeline failed due to ${result} open High/Critical vulnerability alert(s):\n${errorDetails}")
+                        error("Pipeline failed due to ${alertCount} open High/Critical vulnerability alert(s):\n${errorDetails}")
                     } else {
                         echo "No open High or Critical Dependabot alerts found. Proceeding with pipeline."
                     }
