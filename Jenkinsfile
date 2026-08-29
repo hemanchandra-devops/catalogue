@@ -117,7 +117,6 @@ pipeline {
             } */
 
         
-        
         stage('Check Dependabot Alerts') {
             environment {
                 REPO_OWNER   = 'hemanchandra-devops'
