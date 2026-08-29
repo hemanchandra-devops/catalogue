@@ -7,6 +7,9 @@ pipeline {
     environment { 
         Course = 'Jenkins'
         appVersion = ""
+        ACC_ID = "634758830486"
+        PROJECT = "roboshop"
+        COMPONENT = "catalogue"
     }
     options {
         timeout(time: 10, unit: 'MINUTES') 
@@ -41,13 +44,17 @@ pipeline {
                 }
             }
         }
-//         stage('Deploy') {
-//             steps {
-//                 withAWS(region:'eu-central-1',credentials:'nameOfSystemCredentials',federatedUserId:"${submitter}@${releaseVersion}", duration: 3600) {
-//     // do something
-// }
-//             }
-//         }
+        stage('ECR') {
+            steps {
+                withAWS(region:'us-east-1',credentials:'aws') {
+                    sh """
+                        aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ACC_ID}.dkr.ecr.us-east-1.amazonaws.com
+                        docker build -t ${ACC_ID}.dkr.ecr.us-east-1.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion} .
+                        docker push ${ACC_ID}.dkr.ecr.us-east-1.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion}
+                    """
+                }
+            }
+        }
     }
 
 
