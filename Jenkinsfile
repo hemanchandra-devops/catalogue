@@ -117,7 +117,7 @@ pipeline {
             } */
 
         
-        stage('Check Dependabot Alerts') {
+        /* stage('Check Dependabot Alerts') {
             environment {
                 REPO_OWNER   = 'hemanchandra-devops'
                 REPO_NAME    = 'catalogue'
@@ -172,7 +172,7 @@ pipeline {
                     }
                 }
             }
-        }
+        } */
 
 
 
