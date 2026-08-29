@@ -123,46 +123,67 @@ pipeline {
                 REPO_NAME    = 'catalogue'
                 GITHUB_TOKEN = credentials('github-token')
             }
+
             steps {
                 script {
                     echo "Checking Dependabot alerts for ${REPO_OWNER}/${REPO_NAME}..."
 
-                    // Execute curl and jq safely inside the shell environment
                     sh '''
-                        curl -s -H "Accept: application/vnd.github+json" \
+                        set -e
+
+                        # Fetch Dependabot alerts
+                        curl --fail-with-body -sS \
+                            -H "Accept: application/vnd.github+json" \
                             -H "Authorization: Bearer ${GITHUB_TOKEN}" \
                             -H "X-GitHub-Api-Version: 2022-11-28" \
                             "https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/dependabot/alerts?state=open&per_page=100" \
-                            | jq '[.[] | select(.security_vulnerability.severity == "high" or .security_vulnerability.severity == "critical")]' > open_vulnerabilities.json
+                            -o dependabot_alerts.json
 
-                        # Format error summary
-                        jq -r '.[] | "  - [\(.security_vulnerability.severity | ascii_upcase)] Package: \(.security_vulnerability.package.name) | \(.security_advisory.summary)"' open_vulnerabilities.json > errors.txt
+                        # Extract only High/Critical vulnerabilities
+                        jq '
+                            [
+                                .[]
+                                | select(
+                                    .security_vulnerability.severity == "high"
+                                    or
+                                    .security_vulnerability.severity == "critical"
+                                )
+                            ]
+                        ' dependabot_alerts.json > open_vulnerabilities.json
 
-                        # Get count of vulnerabilities
+                        # Generate human-readable error summary
+                        jq -r '
+                            .[]
+                            | "  - [\(.security_vulnerability.severity | ascii_upcase)] Package: \(.security_vulnerability.package.name) | \(.security_advisory.summary)"
+                        ' open_vulnerabilities.json > errors.txt
+
+                        # Count vulnerabilities
                         jq 'length' open_vulnerabilities.json > count.txt
                     '''
 
-                    // Read output files back into Jenkins Pipeline context
                     def alertCount = readFile('count.txt').trim().toInteger()
 
-                    // Display full JSON payload in logs
                     echo "Full vulnerability JSON payload:"
-                    sh 'cat open_vulnerabilities.json | jq .'
+                    sh 'jq . open_vulnerabilities.json'
 
                     if (alertCount > 0) {
                         def errorDetails = readFile('errors.txt').trim()
-                        
+
                         echo "=================[ DEPENDABOT ALERT ERRORS ]================="
                         echo errorDetails
                         echo "============================================================="
 
-                        error("Pipeline failed due to ${alertCount} open High/Critical vulnerability alert(s):\n${errorDetails}")
+                        error(
+                            "Pipeline failed due to ${alertCount} open High/Critical " +
+                            "vulnerability alert(s):\n${errorDetails}"
+                        )
                     } else {
                         echo "No open High or Critical Dependabot alerts found. Proceeding with pipeline."
                     }
                 }
             }
         }
+
 
         stage('ECR') {
             steps {
