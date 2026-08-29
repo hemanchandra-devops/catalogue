@@ -44,18 +44,6 @@ pipeline {
                 }
             }
         }
-        stage('ECR') {
-            steps {
-                withAWS(region:'us-east-1',credentials:'aws') {
-                    sh """
-                        aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ACC_ID}.dkr.ecr.us-east-1.amazonaws.com
-                        docker build -t ${ACC_ID}.dkr.ecr.us-east-1.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion} .
-                        docker push ${ACC_ID}.dkr.ecr.us-east-1.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion}
-                    """
-                }
-            }
-        }
-        
         stage('SonarQube Analysis') {
             steps {
                 // Requires the SonarQube Scanner plugin installed and configured in Jenkins Global Tool Configuration
@@ -64,13 +52,7 @@ pipeline {
                     
                     // Requires a SonarQube server configured in Jenkins System Configuration
                     withSonarQubeEnv('sonar') { // Matches the SonarQube server configuration name
-                        sh """
-                            ${scannerHome}/bin/sonar-scanner \
-                            -Dsonar.projectKey="roboshop catalogue" \
-                            -Dsonar.projectName="roboshop catalogue" \
-                            -Dsonar.sources=. \
-                            sonar.exclusions=**/node_modules/**,**/db/**,Dockerfile,Jenkinsfile
-                        """
+                        sh "${scannerHome}/bin/sonar-scanner"
                     }
                 }
             }
@@ -86,6 +68,19 @@ pipeline {
         // }
 
 
+
+        stage('ECR') {
+            steps {
+                withAWS(region:'us-east-1',credentials:'aws') {
+                    sh """
+                        aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ACC_ID}.dkr.ecr.us-east-1.amazonaws.com
+                        docker build -t ${ACC_ID}.dkr.ecr.us-east-1.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion} .
+                        docker push ${ACC_ID}.dkr.ecr.us-east-1.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion}
+                    """
+                }
+            }
+        }
+        
 
     }
 
