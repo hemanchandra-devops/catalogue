@@ -22,9 +22,9 @@ pipeline {
                 }
             }
         }
-        stage('Test') {
+        stage('Unit Test') {
             steps {
-                echo "Testing"
+                echo "npm test"
             }
         }
         stage('Deploy') {
