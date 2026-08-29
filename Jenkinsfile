@@ -67,54 +67,91 @@ pipeline {
             }
         } */
 
+        /* stage('Check Dependabot Alerts') {
+            environment {
+                API_URL = 'https://api.github.com/repos/hemanchandra-devops/catalogue/dependabot/alerts?state=open&per_page=100'
+            }
+
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+                        sh '''
+                            set -e
+
+                            echo "Checking Dependabot alerts..."
+
+                            curl -sS \
+                            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                            -H "Accept: application/vnd.github+json" \
+                            -H "X-GitHub-Api-Version: 2022-11-28" \
+                            "${API_URL}" > dependabot-alerts.json
+
+                            jq '.' dependabot-alerts.json
+
+                            COUNT=$(jq '
+                            map(
+                                select(
+                                .state == "open" and
+                                (
+                                    .security_advisory.severity == "high" or
+                                    .security_advisory.severity == "critical"
+                                )
+                                )
+                            ) | length
+                            ' dependabot-alerts.json)
+
+                            echo "Open High/Critical Dependabot alerts: ${COUNT}"
+
+                            if [ "$COUNT" -gt 0 ]; then
+                                echo "❌ Pipeline FAILED"
+                                echo "Open High/Critical Dependabot vulnerabilities found."
+                                exit 1
+                            else
+                                echo "✅ No Open High/Critical Dependabot alerts."
+                                echo "Continuing pipeline..."
+                            fi
+                        '''
+                        }
+                    }
+                }
+            } */
+
+        
+        
         stage('Check Dependabot Alerts') {
-    environment {
-        API_URL = 'https://api.github.com/repos/hemanchandra-devops/catalogue/dependabot/alerts?state=open&per_page=100'
-    }
+            environment {
+                REPO_OWNER = 'hemanchandra-devops'
+                REPO_NAME  = 'catalogue'
+                GITHUB_TOKEN = credentials('github-token')
+            }
+            steps {
+                script {
+                    echo "Checking Dependabot alerts for ${REPO_OWNER}/${REPO_NAME}..."
 
-    steps {
-        script {
-            withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
-                sh '''
-                    set -e
+                    // Query GitHub API, filter for open high/critical alerts, save JSON output
+                    def alertCount = sh(
+                        script: '''
+                            gh api repos/${REPO_OWNER}/${REPO_NAME}/dependabot/alerts \
+                              --paginate \
+                              --jq '[.[] | select(.state == "open" and (.security_vulnerability.severity == "high" or .security_vulnerability.severity == "critical"))]' > open_vulnerabilities.json
 
-                    echo "Checking Dependabot alerts..."
+                            jq 'length' open_vulnerabilities.json
+                        ''',
+                        returnStdout: true
+                    ).trim().toInteger()
 
-                    curl -sS \
-                      -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-                      -H "Accept: application/vnd.github+json" \
-                      -H "X-GitHub-Api-Version: 2022-11-28" \
-                      "${API_URL}" > dependabot-alerts.json
+                    // Display filtered JSON in build log
+                    sh 'cat open_vulnerabilities.json | jq .'
 
-                    jq '.' dependabot-alerts.json
-
-                    COUNT=$(jq '
-                      map(
-                        select(
-                          .state == "open" and
-                          (
-                            .security_advisory.severity == "high" or
-                            .security_advisory.severity == "critical"
-                          )
-                        )
-                      ) | length
-                    ' dependabot-alerts.json)
-
-                    echo "Open High/Critical Dependabot alerts: ${COUNT}"
-
-                    if [ "$COUNT" -gt 0 ]; then
-                        echo "❌ Pipeline FAILED"
-                        echo "Open High/Critical Dependabot vulnerabilities found."
-                        exit 1
-                    else
-                        echo "✅ No Open High/Critical Dependabot alerts."
-                        echo "Continuing pipeline..."
-                    fi
-                '''
+                    // Fail pipeline if high or critical alerts exist
+                    if (alertCount > 0) {
+                        error("Pipeline failed: Found ${alertCount} open Dependabot alert(s) with High or Critical severity.")
+                    } else {
+                        echo "No open High or Critical Dependabot alerts found. Proceeding with pipeline."
+                    }
                 }
             }
         }
-    }
 
 
         stage('ECR') {
