@@ -55,6 +55,38 @@ pipeline {
                 }
             }
         }
+        
+        stage('SonarQube Analysis') {
+            steps {
+                // Requires the SonarQube Scanner plugin installed and configured in Jenkins Global Tool Configuration
+                script {
+                    def scannerHome = tool 'sonar-8.0' // Matches the name defined in Jenkins Global Tool Configuration
+                    
+                    // Requires a SonarQube server configured in Jenkins System Configuration
+                    withSonarQubeEnv('sonar') { // Matches the SonarQube server configuration name
+                        sh """
+                            ${scannerHome}/bin/sonar-scanner \
+                            -Dsonar.projectKey="roboshop catalogue" \
+                            -Dsonar.projectName="roboshop catalogue" \
+                            -Dsonar.sources=. \
+                            sonar.exclusions=**/node_modules/**,**/db/**,Dockerfile,Jenkinsfile
+                        """
+                    }
+                }
+            }
+        }
+
+        // stage("Quality Gate") {
+        //     steps {
+        //         timeout(time: 5, unit: 'MINUTES') {
+        //             // Waits for SonarQube server to finish analysis and return status
+        //             waitForQualityGate abortPipeline: true
+        //         }
+        //     }
+        // }
+
+
+
     }
 
 
