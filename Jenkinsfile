@@ -44,7 +44,6 @@ pipeline {
                 }
             }
         }
-
         /* stage('SonarQube Analysis') {
             steps {
                 // Requires the SonarQube Scanner plugin installed and configured in Jenkins Global Tool Configuration
@@ -66,7 +65,6 @@ pipeline {
                 }
             }
         } */
-
         /* stage('Check Dependabot Alerts') {
             environment {
                 API_URL = 'https://api.github.com/repos/hemanchandra-devops/catalogue/dependabot/alerts?state=open&per_page=100'
@@ -175,7 +173,6 @@ pipeline {
         } */
 
         
-
         stage('ECR') {
             steps {
                 withAWS(region:'us-east-1',credentials:'aws') {
@@ -183,6 +180,20 @@ pipeline {
                         aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ACC_ID}.dkr.ecr.us-east-1.amazonaws.com
                         docker build -t ${ACC_ID}.dkr.ecr.us-east-1.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion} .
                         docker push ${ACC_ID}.dkr.ecr.us-east-1.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion}
+                    """
+                }
+            }
+        }
+        stage('Trivy Scan') {
+            steps {
+                script {
+                    sh """
+                        trivy image \
+                            --scanners vuln \
+                            --vuln-type os \
+                            --severity HIGH,CRITICAL \
+                            --exit-code 1 \
+                            ${ACC_ID}.dkr.ecr.us-east-1.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion}
                     """
                 }
             }
