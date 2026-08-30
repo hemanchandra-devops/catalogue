@@ -16,7 +16,8 @@ RUN npm install
 
 FROM node:20.20.2-alpine3.22
 WORKDIR /app
-RUN addgroup -S roboshop && \
+RUN apk update && apk upgrade && \
+    addgroup -S roboshop && \
     adduser -S roboshop -G roboshop
 LABEL com.project="roboshop" \
       component="catalogue" \
