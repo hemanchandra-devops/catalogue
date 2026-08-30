@@ -186,7 +186,6 @@ pipeline {
                 }
             }
         }
-
         stage('Trivy Scan') {
             steps {
                 script {
