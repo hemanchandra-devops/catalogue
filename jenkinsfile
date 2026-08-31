@@ -1,9 +1,9 @@
 @Library('jenkins-shared-library') _
 
-def configMap([
-        project: 'roboshop',
-        component: 'catalogue'
-    ])
+def configMap = [
+    project: 'roboshop',
+    component: 'catalogue'
+]
 
 if (env.BRANCH_NAME == 'new-feature') {
     nodejsPipeline(configMap)
