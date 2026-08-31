@@ -1,11 +1,13 @@
 @Library('jenkins-shared-library') _
 
-if (env.BRANCH_NAME == 'new-feature') {
-    nodejs([
+def configMap([
         project: 'roboshop',
         component: 'catalogue'
     ])
-} else if (env.BRANCH_NAME == 'main') {
 
+if (env.BRANCH_NAME == 'new-feature') {
+    nodejsPipeline(configMap)
+} 
+else if (env.BRANCH_NAME == 'main') {
     echo "Main branch detected. Following CR process."
 }
