@@ -5,9 +5,11 @@ def configMap = [
     component: 'catalogue'
 ]
 
-if (env.BRANCH_NAME == 'new-feature') {
+if (env.BRANCH_NAME != 'main') {
+    echo "Not main branch, continuing pipeline..."
     nodejsPipeline(configMap)
-} 
-else if (env.BRANCH_NAME == 'main') {
-    echo "Main branch detected. Following CR process."
+} else {
+    echo "Main branch detected, stopping pipeline..."
+    currentBuild.result = 'ABORTED'
+    error("Pipeline stopped because branch is main")
 }
