@@ -5,6 +5,7 @@ if (env.BRANCH_NAME == 'new-feature') {
         project: 'roboshop',
         component: 'catalogue'
     ])
-} else {
-    echo "Skipping execution for branch: ${env.BRANCH_NAME}"
+} else if (env.BRANCH_NAME == 'main') {
+
+    echo "Main branch detected. Following CR process."
 }
